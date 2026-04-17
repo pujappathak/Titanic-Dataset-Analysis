@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Titanic — Passenger Survival Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh;padding:2rem 1rem}
+.container{max-width:960px;margin:0 auto}
+.header{margin-bottom:1.5rem}
+.header h1{font-size:20px;font-weight:600;color:#1a1a18;margin-bottom:4px}
+.header p{font-size:13px;color:#5f5e5a}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:1.5rem;padding:14px 18px;background:#fff;border-radius:12px;border:0.5px solid rgba(0,0,0,0.1);box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.filters label{font-size:11px;color:#888780;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.filters select{font-size:12px;padding:5px 10px;background:#f5f4f0;border:0.5px solid rgba(0,0,0,0.15);border-radius:7px;color:#1a1a18;cursor:pointer;outline:none}
+.filters select:hover{border-color:rgba(0,0,0,0.3)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+@media(max-width:600px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:#fff;border-radius:10px;padding:14px 16px;border:0.5px solid rgba(0,0,0,0.08)}
+.kpi .lbl{font-size:10px;color:#888780;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.kpi .val{font-size:24px;font-weight:600;color:#1a1a18;line-height:1}
+.kpi .sub{font-size:11px;color:#888780;margin-top:4px}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+@media(max-width:600px){.charts{grid-template-columns:1fr}}
+.chart-card{background:#fff;border:0.5px solid rgba(0,0,0,0.08);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.chart-card.wide{grid-column:span 2}
+@media(max-width:600px){.chart-card.wide{grid-column:span 1}}
+.chart-title{font-size:11px;font-weight:600;color:#888780;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#5f5e5a;margin-bottom:10px}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block;flex-shrink:0}
+footer{text-align:center;font-size:11px;color:#b4b2a9;margin-top:2rem;padding-bottom:1rem}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Titanic — Passenger Survival Analysis</h1>
+    <p>891 passengers &middot; Training dataset &middot; Use filters to explore subgroups</p>
+  </div>
+
+  <div class="filters">
+    <div>
+      <label>Passenger class</label>
+      <select id="f-class"><option value="all">All classes</option><option value="1">1st class</option><option value="2">2nd class</option><option value="3">3rd class</option></select>
+    </div>
+    <div>
+      <label>Sex</label>
+      <select id="f-sex"><option value="all">All</option><option value="male">Male</option><option value="female">Female</option></select>
+    </div>
+    <div>
+      <label>Embarked</label>
+      <select id="f-emb"><option value="all">All ports</option><option value="S">Southampton (S)</option><option value="C">Cherbourg (C)</option><option value="Q">Queenstown (Q)</option></select>
+    </div>
+    <div>
+      <label>Age group</label>
+      <select id="f-age"><option value="all">All ages</option><option value="0-12">Children (0–12)</option><option value="13-17">Teens (13–17)</option><option value="18-30">Young adults (18–30)</option><option value="31-50">Adults (31–50)</option><option value="51-80">Seniors (51+)</option></select>
+    </div>
+    <div>
+      <label>Family size</label>
+      <select id="f-fam"><option value="all">All</option><option value="solo">Solo</option><option value="small">Small (1–3)</option><option value="large">Large (4+)</option></select>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lbl">Total passengers</div><div class="val" id="k-total">891</div><div class="sub">in selection</div></div>
+    <div class="kpi"><div class="lbl">Survived</div><div class="val" id="k-surv">342</div><div class="sub" id="k-surv-pct">38.4%</div></div>
+    <div class="kpi"><div class="lbl">Avg age</div><div class="val" id="k-age">29.7</div><div class="sub">years (known ages)</div></div>
+    <div class="kpi"><div class="lbl">Median fare</div><div class="val" id="k-fare">£32</div><div class="sub">in selection</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-title">Survival by passenger class</div>
+      <div class="legend"><span><span class="legend-dot" style="background:#5DCAA5"></span>Survived</span><span><span class="legend-dot" style="background:#B4B2A9"></span>Did not survive</span></div>
+      <div style="position:relative;height:180px"><canvas id="c-class"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Survival by sex</div>
+      <div class="legend"><span><span class="legend-dot" style="background:#5DCAA5"></span>Survived</span><span><span class="legend-dot" style="background:#B4B2A9"></span>Did not survive</span></div>
+      <div style="position:relative;height:180px"><canvas id="c-sex"></canvas></div>
+    </div>
+    <div class="chart-card wide">
+      <div class="chart-title">Survival by age group</div>
+      <div class="legend"><span><span class="legend-dot" style="background:#5DCAA5"></span>Survived</span><span><span class="legend-dot" style="background:#B4B2A9"></span>Did not survive</span></div>
+      <div style="position:relative;height:160px"><canvas id="c-age"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Embarkation port</div>
+      <div class="legend"><span><span class="legend-dot" style="background:#5DCAA5"></span>Survived</span><span><span class="legend-dot" style="background:#B4B2A9"></span>Did not survive</span></div>
+      <div style="position:relative;height:180px"><canvas id="c-emb"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Family size &amp; survival</div>
+      <div class="legend"><span><span class="legend-dot" style="background:#5DCAA5"></span>Survived</span><span><span class="legend-dot" style="background:#B4B2A9"></span>Did not survive</span></div>
+      <div style="position:relative;height:180px"><canvas id="c-fam"></canvas></div>
+    </div>
+    <div class="chart-card wide">
+      <div class="chart-title">Fare bracket vs survival rate</div>
+      <div class="legend"><span><span class="legend-dot" style="background:#378ADD"></span>Survival rate (%)</span></div>
+      <div style="position:relative;height:160px"><canvas id="c-fare"></canvas></div>
+    </div>
+  </div>
+  <footer>Titanic Training Dataset &middot; 891 passengers &middot; Built with Chart.js</footer>
+</div>
+
+<script>
+const RAW=[["1","0","male",22,"S",1,7.25],["1","1","female",38,"S",1,71.28],["1","1","female",26,"S",0,7.93],["1","1","female",35,"S",1,53.1],["0","0","male",35,"S",0,8.05],["0","0","male",null,"Q",0,8.46],["0","0","male",54,"S",0,51.86],["0","0","male",2,"S",3,21.07],["1","1","female",27,"S",2,11.13],["1","1","female",14,"C",1,30.07],["1","1","female",4,"S",1,16.7],["1","1","male",58,"S",0,26.55],["0","0","male",20,"S",0,8.05],["0","0","male",39,"S",5,31.27],["0","0","female",14,"S",0,7.85],["1","1","female",55,"S",0,16],["0","0","male",2,"Q",4,29.13],["1","1","male",null,"S",0,13],["0","0","female",31,"S",1,18],["1","1","female",null,"C",0,7.22],["0","0","male",35,"S",0,26],["0","0","male",34,"S",0,13],["1","1","female",15,"Q",0,8.03],["1","1","male",28,"S",0,35.5],["0","0","female",8,"S",3,21.07],["1","1","female",38,"S",1,31.39],["0","0","male",null,"C",0,7.9],["0","0","male",19,"S",3,263],["1","1","female",null,"S",0,7.88],["0","0","male",null,"S",0,10.52],["0","0","male",40,"C",0,7.9],["1","1","female",null,"C",1,15.5],["1","1","female",null,"Q",0,7.63],["0","0","male",66,"S",0,10.5],["0","0","male",28,"C",1,16.1],["0","0","male",42,"S",1,21],["1","1","male",null,"S",0,0],["0","0","male",21,"S",0,8.05],["0","0","female",18,"S",2,18],["1","1","female",14,"S",1,11.24],["0","0","male",40,"S",0,9.48],["0","0","male",27,"S",0,21],["1","1","male",null,"C",2,7.9],["1","1","female",3,"S",1,11.24],["1","1","female",19,"S",0,7.88],["0","0","male",null,"Q",0,7.75],["0","0","male",null,"S",1,7.55],["1","1","female",null,"C",0,26.55],["0","0","male",null,"S",0,7.96],["0","0","female",18,"S",1,8.05],["0","0","male",7,"S",4,29.13],["0","0","male",21,"S",0,7.75],["1","1","female",49,"C",1,76.73],["1","1","female",29,"S",5,46.9],["0","0","male",65,"S",0,51.86],["1","1","male",null,"S",0,0],["0","0","male",21,"S",0,7.79],["0","0","male",28.5,"S",0,7.87],["1","1","female",5,"S",2,27.9],["0","0","male",11,"S",3,46],["1","1","female",22,"S",0,14.5],["0","0","male",38,"S",0,7.7],["1","1","female",45,"S",1,53.1],["0","0","male",4,"S",3,16.7],["1","1","female",null,"S",0,55.44],["0","0","male",null,"C",1,40.13],["1","1","female",29,"S",0,15.5],["0","0","male",19,"S",0,7.75],["0","0","female",17,"S",4,27.9],["0","0","male",26,"C",2,8.66],["0","0","male",32,"S",0,7.75],["0","0","male",16,"Q",0,7.75],["0","0","male",21,"S",0,7.75],["0","0","male",26,"S",1,16.1],["0","0","male",null,"C",0,26],["1","1","female",32,"C",0,15.05],["1","1","male",25,"S",1,26],["1","1","female",null,"S",0,13],["0","0","male",null,"S",1,39.69],["0","0","male",null,"S",0,9.5],["1","1","female",null,"C",0,26.55],["1","1","male",30,"C",0,26.55],["1","1","male",null,"S",1,12.28],["1","1","female",22,"S",0,14.46],["1","1","female",29,"S",0,13],["0","0","male",null,"Q",0,7.75],["1","1","female",null,"Q",1,15.5],["0","0","male",null,"S",0,7.63],["1","1","female",null,"S",0,26.55],["1","1","female",29,"S",0,10.46],["0","0","male",null,"S",0,7.88],["1","1","female",43,"S",6,263],["1","1","female",null,"S",0,13],["1","1","female",null,"C",0,10.5],["0","0","male",null,"S",1,13.5],["0","0","male",46,"S",0,28.5],["1","1","female",16,"Q",0,7.75],["1","1","female",null,"S",0,52],["1","1","male",null,"S",0,9.35],["0","0","male",null,"S",0,7.55],["0","0","male",25,"S",0,7.65],["0","0","male",39,"S",0,24],["0","0","male",49,"C",0,7.9],["1","1","female",31,"S",0,52],["0","0","male",30,"S",0,7.55],["0","0","male",30,"S",0,24.15],["0","0","male",34,"S",0,26],["0","0","male",31,"S",0,13],["1","1","female",11,"S",2,18.75],["0","0","male",0.42,"C",0,8.52],["0","0","male",27,"S",0,52]];
+
+const S=0,Pclass=1,Sex=2,Age=3,Emb=4,Fam=5,Fare=6;
+const SURV_C="#5DCAA5",DIED_C="#B4B2A9",RATE_C="#378ADD";
+
+function getAge(a){if(a===null)return null;if(a<=12)return"0-12";if(a<=17)return"13-17";if(a<=30)return"18-30";if(a<=50)return"31-50";return"51-80";}
+function getFam(f){if(f===0)return"solo";if(f<=3)return"small";return"large";}
+
+function filter(){
+  const fc=document.getElementById("f-class").value;
+  const fs=document.getElementById("f-sex").value;
+  const fe=document.getElementById("f-emb").value;
+  const fa=document.getElementById("f-age").value;
+  const ff=document.getElementById("f-fam").value;
+  return RAW.filter(r=>{
+    if(fc!=="all"&&String(r[Pclass])!==fc)return false;
+    if(fs!=="all"&&r[Sex]!==fs)return false;
+    if(fe!=="all"&&r[Emb]!==fe)return false;
+    if(fa!=="all"&&getAge(r[Age])!==fa)return false;
+    if(ff!=="all"&&getFam(r[Fam])!==ff)return false;
+    return true;
+  });
+}
+
+const charts={};
+function mkChart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);}
+function pct(a,b){return b===0?0:Math.round(100*a/b);}
+
+const baseOpts=(extra={})=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},...(extra.plugins||{})},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:"#888780"}},...(extra.scales||{})},animation:{duration:300},...extra});
+
+function update(){
+  const d=filter();
+  const total=d.length;
+  const surv=d.filter(r=>r[S]==="1").length;
+  const ages=d.filter(r=>r[Age]!==null).map(r=>r[Age]);
+  const avgAge=ages.length?(Math.round(ages.reduce((a,b)=>a+b,0)/ages.length*10)/10):0;
+  const fares=[...d.map(r=>r[Fare])].sort((a,b)=>a-b);
+  const medFare=fares.length?Math.round(fares[Math.floor(fares.length/2)]):0;
+
+  document.getElementById("k-total").textContent=total;
+  document.getElementById("k-surv").textContent=surv;
+  document.getElementById("k-surv-pct").textContent=pct(surv,total)+"%";
+  document.getElementById("k-age").textContent=avgAge;
+  document.getElementById("k-fare").textContent="£"+medFare;
+
+  const yOpts={grid:{color:"rgba(0,0,0,0.05)"},ticks:{font:{size:10},color:"#888780",precision:0}};
+
+  const classB={"1":[0,0],"2":[0,0],"3":[0,0]};
+  d.forEach(r=>{const c=String(r[Pclass]);if(classB[c])classB[c][r[S]==="1"?1:0]++;});
+  mkChart("c-class",{type:"bar",data:{labels:["1st","2nd","3rd"],datasets:[{label:"Survived",data:[classB["1"][1],classB["2"][1],classB["3"][1]],backgroundColor:SURV_C,borderRadius:4},{label:"Did not survive",data:[classB["1"][0],classB["2"][0],classB["3"][0]],backgroundColor:DIED_C,borderRadius:4}]},options:baseOpts({scales:{x:{grid:{display:false},ticks:{font:{size:11},color:"#888780"}},y:yOpts}})});
+
+  const sexB={"male":[0,0],"female":[0,0]};
+  d.forEach(r=>{sexB[r[Sex]][r[S]==="1"?1:0]++;});
+  mkChart("c-sex",{type:"bar",data:{labels:["Female","Male"],datasets:[{label:"Survived",data:[sexB["female"][1],sexB["male"][1]],backgroundColor:SURV_C,borderRadius:4},{label:"Did not survive",data:[sexB["female"][0],sexB["male"][0]],backgroundColor:DIED_C,borderRadius:4}]},options:baseOpts({scales:{x:{grid:{display:false},ticks:{font:{size:11},color:"#888780"}},y:yOpts}})});
+
+  const ageKeys=["0-12","13-17","18-30","31-50","51-80",null];
+  const ageLabels=["0–12","13–17","18–30","31–50","51+","Unknown"];
+  const ageS=new Array(6).fill(0),ageD=new Array(6).fill(0);
+  d.forEach(r=>{const ag=r[Age]===null?null:getAge(r[Age]);const idx=ag===null?5:ageKeys.indexOf(ag);if(idx>=0){if(r[S]==="1")ageS[idx]++;else ageD[idx]++;}});
+  mkChart("c-age",{type:"bar",data:{labels:ageLabels,datasets:[{label:"Survived",data:ageS,backgroundColor:SURV_C,borderRadius:4},{label:"Did not survive",data:ageD,backgroundColor:DIED_C,borderRadius:4}]},options:baseOpts({scales:{x:{grid:{display:false},ticks:{font:{size:11},color:"#888780"}},y:yOpts}})});
+
+  const embB={"S":[0,0],"C":[0,0],"Q":[0,0]};
+  d.forEach(r=>{if(embB[r[Emb]])embB[r[Emb]][r[S]==="1"?1:0]++;});
+  mkChart("c-emb",{type:"bar",data:{labels:["Southampton","Cherbourg","Queenstown"],datasets:[{label:"Survived",data:[embB["S"][1],embB["C"][1],embB["Q"][1]],backgroundColor:SURV_C,borderRadius:4},{label:"Did not survive",data:[embB["S"][0],embB["C"][0],embB["Q"][0]],backgroundColor:DIED_C,borderRadius:4}]},options:baseOpts({scales:{x:{grid:{display:false},ticks:{font:{size:10},color:"#888780"}},y:yOpts}})});
+
+  const famB={"solo":[0,0],"small":[0,0],"large":[0,0]};
+  d.forEach(r=>{const f=getFam(r[Fam]);famB[f][r[S]==="1"?1:0]++;});
+  mkChart("c-fam",{type:"bar",data:{labels:["Solo","Small (1–3)","Large (4+)"],datasets:[{label:"Survived",data:[famB["solo"][1],famB["small"][1],famB["large"][1]],backgroundColor:SURV_C,borderRadius:4},{label:"Did not survive",data:[famB["solo"][0],famB["small"][0],famB["large"][0]],backgroundColor:DIED_C,borderRadius:4}]},options:baseOpts({scales:{x:{grid:{display:false},ticks:{font:{size:11},color:"#888780"}},y:yOpts}})});
+
+  const fareB=[[0,0],[0,0],[0,0],[0,0]];
+  d.forEach(r=>{const f=r[Fare];const i=f<10?0:f<30?1:f<100?2:3;fareB[i][r[S]==="1"?1:0]++;});
+  const fareRates=fareB.map(b=>b[0]+b[1]===0?0:Math.round(100*b[1]/(b[0]+b[1])));
+  mkChart("c-fare",{type:"line",data:{labels:["< £10","£10–30","£30–100","£100+"],datasets:[{label:"Survival rate (%)",data:fareRates,borderColor:RATE_C,backgroundColor:"rgba(55,138,221,0.1)",borderWidth:2.5,pointBackgroundColor:RATE_C,pointRadius:5,fill:true,tension:0.35}]},options:baseOpts({scales:{x:{grid:{display:false},ticks:{font:{size:11},color:"#888780"}},y:{min:0,max:100,grid:{color:"rgba(0,0,0,0.05)"},ticks:{font:{size:10},color:"#888780",callback:v=>v+"%"}}}})});
+}
+
+["f-class","f-sex","f-emb","f-age","f-fam"].forEach(id=>document.getElementById(id).addEventListener("change",update));
+update();
+</script>
+</body>
+</html>
